@@ -19,8 +19,12 @@ def init_argparse() -> argparse.ArgumentParser:
         default=["[!entry][!main][!spec].js"],
         help="The file types whose names should be searched (default: [!entry][!main][!spec].js)")
     parser.add_argument(
+        "--sourcetypes-no-recursive",
+        action='store_false',
+        help="Do not search recursively for source files")
+    parser.add_argument(
         "--searchtypes", type=str, nargs="*",
-        default=[".jsp", ".tag"],
+        default=[".jsp", ".tag", ".html"],
         help="The file types whose contents should be searched (default: .jsp .tag)")
 
     return parser
@@ -30,23 +34,32 @@ def main():
     parser = init_argparse()
     args = parser.parse_args()
 
-    foundFiles = findFiles(args.sourcepath[0], args.sourcetypes)
+    foundFiles = findFiles(args.sourcepath[0], args.sourcetypes, args.sourcetypes_no_recursive)
     foundFileNames = getFileNames(foundFiles)
     searchFiles = findFiles(args.searchpath[0], args.searchtypes)
 
     print(f"Found {len(foundFiles)} files with extensions {args.sourcetypes}")
+    for file in foundFiles:
+        print(file)
     print(f"Searching {len(searchFiles)} files with extensions {args.searchtypes}...")
 
     usageCounts = searchFilesForUsage(foundFileNames, searchFiles)
+    filteredCounts = {k: v for k, v in usageCounts.items() if v == 0}
 
-    print("File usage counts:")
-    print(json.dumps(usageCounts, indent=4))
+    print(f"Found {len(filteredCounts)} files with no usages:")
+    # print(json.dumps(filteredCounts, indent=4))
+    for key in list(filteredCounts.keys()):
+        print(f"- {key}")
 
-def findFiles(path, extensions):
+def findFiles(path, extensions, recursive=True):
+    print(f"Searching {path} for files with extensions {extensions}, recursive={recursive}")
     files = []
 
     for ext in extensions:
-        files.extend(glob.glob(path + '/**/*' + ext, recursive=True))
+        if recursive:
+            files.extend(glob.glob(path + '/**/*' + ext, recursive=recursive))
+        else:
+            files.extend(glob.glob(path + '/*' + ext))
 
     return files
 
